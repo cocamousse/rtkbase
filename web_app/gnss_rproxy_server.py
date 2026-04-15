@@ -6,8 +6,6 @@
 # Reverse proxy server to acces a Gnss receiver integrated Web Server (Mosaic-X5 or other)
 
 import os
-from gevent import monkey
-monkey.patch_all()
 import requests
 import argparse
 
@@ -23,7 +21,6 @@ from wtforms import PasswordField, BooleanField, SubmitField
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
 from wtforms.validators import ValidationError, DataRequired, EqualTo
 import urllib
-import gunicorn.app.base
 
 from werkzeug.security import generate_password_hash
 from werkzeug.security import check_password_hash
@@ -44,21 +41,6 @@ bootstrap = Bootstrap4(app)
 #Get settings from settings.conf.default and settings.conf
 rtkbaseconfig = RTKBaseConfigManager(os.path.join(rtkbase_path, "settings.conf.default"), os.path.join(rtkbase_path, "settings.conf"))
 GNSS_RCV_WEB_URL = str("{}{}".format("http://", rtkbaseconfig.get("main", "gnss_rcv_web_ip")))
-
-class StandaloneApplication(gunicorn.app.base.BaseApplication):
-    def __init__(self, app, options=None):
-        self.options = options or {}
-        self.application = app
-        super().__init__()
-
-    def load_config(self):
-        config = {key: value for key, value in self.options.items()
-                if key in self.cfg.settings and value is not None}
-        for key, value in config.items():
-            self.cfg.set(key.lower(), value)
-
-    def load(self):
-        return self.application
 
 class User(UserMixin):
     """ Class for user authentification """
@@ -181,19 +163,12 @@ if __name__ == "__main__":
             app.config["LOGIN_DISABLED"] = True
 
         app.secret_key = rtkbaseconfig.get_secret_key()
-        #socketio.run(app, host = "::", port = args.port or rtkbaseconfig.get("general", "web_port", fallback=80), debug=args.debug) # IPv6 "::" is mapped to IPv4
-        #wsgi.server(eventlet.listen(("0.0.0.0", int(rtkbaseconfig.get("main", "gnss_rcv_web_proxy_port", fallback=9090)))), app, log_output=False)
-
-        gunicorn_options = {
-        'bind': ['%s:%s' % ('0.0.0.0', args.port or rtkbaseconfig.get("main", "gnss_rcv_web_proxy_port", fallback=9090)),
-                    '%s:%s' % ('[::1]', args.port or rtkbaseconfig.get("main", "gnss_rcv_web_proxy_port", fallback=9090)) ],
-        'workers': 1,
-        'worker_class': 'gevent',
-        'loglevel': 'debug' if args.debug else 'warning',
-        }
-        #start gunicorn
-        StandaloneApplication(app, gunicorn_options).run()
+        app.run(
+            host="::",  # IPv6 "::" is mapped to IPv4 on dual-stack hosts
+            port=args.port or rtkbaseconfig.get("main", "gnss_rcv_web_proxy_port", fallback=9090),
+            debug=args.debug,
+            use_reloader=False,
+        )
 
     except KeyboardInterrupt:
         print("Server interrupted by user!!")
-

@@ -857,10 +857,10 @@ main() {
 
   [ $ARG_DEPENDENCIES -eq 1 ] && { install_dependencies ; ((cumulative_exit+=$?)) ;}
   [ $ARG_RTKLIB -eq 1 ] && { install_rtklib ; ((cumulative_exit+=$?)) ;}
-  [ $ARG_RTKBASE_RELEASE -eq 1 ] && { install_rtkbase_from_release && rtkbase_requirements ; ((cumulative_exit+=$?)) ;}
-  if [ $ARG_RTKBASE_REPO != 0 ] ; then { install_rtkbase_from_repo "${ARG_RTKBASE_REPO}" && rtkbase_requirements ; ((cumulative_exit+=$?)) ;} ;fi
-  [ $ARG_RTKBASE_BLD -eq 1 ] && { install_rtkbase_bundled && rtkbase_requirements ; ((cumulative_exit+=$?)) ;}
-  if [ $ARG_RTKBASE_SRC != 0 ] ; then { install_rtkbase_custom_source "${ARG_RTKBASE_SRC}" && rtkbase_requirements ; ((cumulative_exit+=$?)) ;} ;fi
+  [ $ARG_RTKBASE_RELEASE -eq 1 ] && { install_rtkbase_from_release && rtkbase_requirements && install_rtklib ; ((cumulative_exit+=$?)) ;}
+  if [ $ARG_RTKBASE_REPO != 0 ] ; then { install_rtkbase_from_repo "${ARG_RTKBASE_REPO}" && rtkbase_requirements && install_rtklib ; ((cumulative_exit+=$?)) ;} ;fi
+  [ $ARG_RTKBASE_BLD -eq 1 ] && { install_rtkbase_bundled && rtkbase_requirements && install_rtklib ; ((cumulative_exit+=$?)) ;}
+  if [ $ARG_RTKBASE_SRC != 0 ] ; then { install_rtkbase_custom_source "${ARG_RTKBASE_SRC}" && rtkbase_requirements && install_rtklib ; ((cumulative_exit+=$?)) ;} ;fi
   [ $ARG_RTKBASE_RQS -eq 1 ] && { rtkbase_requirements ; ((cumulative_exit+=$?)) ;}
   [ $ARG_UNIT -eq 1 ] && { install_unit_files ; ((cumulative_exit+=$?)) ;}
   [ $ARG_GPSD_CHRONY -eq 1 ] && { install_gpsd_chrony ; ((cumulative_exit+=$?)) ;}

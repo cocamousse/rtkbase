@@ -624,6 +624,11 @@ def deleteLog(json_msg):
 
 @socketio.on("detect_receiver", namespace="/test")
 def detect_receiver(json_msg):
+    # Run detection in the background so long subprocess calls do not block
+    # the Socket.IO event loop/heartbeat.
+    socketio.start_background_task(detect_receiver_task, dict(json_msg or {}))
+
+def detect_receiver_task(json_msg):
     print("Detecting gnss receiver")
     #print("DEBUG json_msg: ", json_msg)
     answer = subprocess.run([os.path.join(rtkbase_path, "tools", "install.sh"), "--user", rtkbaseconfig.get("general", "user"), "--detect-gnss", "--no-write-port"], encoding="UTF-8", stderr=subprocess.PIPE, stdout=subprocess.PIPE, check=False)
@@ -662,6 +667,10 @@ def apply_receiver_settings(json_msg):
 
 @socketio.on("configure_receiver", namespace="/test")
 def configure_receiver(brand="", model=""):
+    # Keep Socket.IO responsive while configuring receiver.
+    socketio.start_background_task(configure_receiver_task, brand, model)
+
+def configure_receiver_task(brand="", model=""):
     # only some receiver could be configured automaticaly
     # After port detection, the main service will be restarted, and it will take some time. But we have to stop it to
     # configure the receiver. We wait a few seconds before stopping it to remove conflicting calls.

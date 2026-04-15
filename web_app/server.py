@@ -28,9 +28,6 @@
 # You should have received a copy of the GNU General Public License
 # along with ReachView.  If not, see <http://www.gnu.org/licenses/>.
 
-from gevent import monkey
-monkey.patch_all()
-
 import time
 import json
 import os
@@ -71,7 +68,6 @@ import socket
 from werkzeug.security import generate_password_hash
 from werkzeug.security import check_password_hash
 from werkzeug.utils import safe_join
-import gunicorn.app.base
 
 app = Flask(__name__)
 app.debug = False
@@ -87,7 +83,7 @@ path_to_rtklib = "/usr/local/bin" #TODO find path with which or another tool
 
 login=LoginManager(app)
 login.login_view = 'login_page'
-socketio = SocketIO(app, async_mode = 'gevent')
+socketio = SocketIO(app, async_mode='threading')
 bootstrap = Bootstrap4(app)
 
 #Get settings from settings.conf.default and settings.conf
@@ -115,21 +111,6 @@ services_list = [{"service_unit" : "str2str_tcp.service", "name" : "main"},
 #Delay before rtkrcv will stop if no user is on status.html page
 rtkcv_standby_delay = 600
 connected_clients = 0
-
-class StandaloneApplication(gunicorn.app.base.BaseApplication):
-    def __init__(self, app, options=None):
-        self.options = options or {}
-        self.application = app
-        super().__init__()
-
-    def load_config(self):
-        config = {key: value for key, value in self.options.items()
-                if key in self.cfg.settings and value is not None}
-        for key, value in config.items():
-            self.cfg.set(key.lower(), value)
-
-    def load(self):
-        return self.application
 
 class User(UserMixin):
     """ Class for user authentification """
@@ -1043,17 +1024,14 @@ if __name__ == "__main__":
         manager_thread.start()
 
         app.secret_key = rtkbaseconfig.get_secret_key()
-        #socketio.run(app, host = "::", port = args.port or rtkbaseconfig.get("general", "web_port", fallback=80), debug=args.debug) # IPv6 "::" is mapped to IPv4
-        gunicorn_options = {
-        'bind': ['%s:%s' % ('0.0.0.0', args.port or rtkbaseconfig.get("general", "web_port", fallback=80)),
-                    '%s:%s' % ('[::1]', args.port or rtkbaseconfig.get("general", "web_port", fallback=80)) ],
-        'workers': 1,
-        'worker_class': 'gevent',
-        'graceful_timeout': 10,
-        'loglevel': 'debug' if args.debug else 'warning',
-        }
-        #start gunicorn
-        StandaloneApplication(app, gunicorn_options).run()
+        socketio.run(
+            app,
+            host="::",  # IPv6 "::" is mapped to IPv4 on dual-stack hosts
+            port=args.port or rtkbaseconfig.get("general", "web_port", fallback=80),
+            debug=args.debug,
+            use_reloader=False,
+            allow_unsafe_werkzeug=True,
+        )
 
     except KeyboardInterrupt:
         print("Server interrupted by user!!")
